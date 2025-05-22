@@ -1,5 +1,5 @@
 /**
- * Student Course service to handle the relationship between students and courses
+ * Student Course service to handle enrollment-related operations
  */
 
 import { toast } from 'react-toastify';
@@ -13,44 +13,56 @@ const getApperClient = () => {
   });
 };
 
-// Fetch all student-course relationships
-export const fetchStudentCourses = async (studentId = null, courseId = null) => {
+// Fetch students enrolled in a course
+export const fetchStudentsForCourse = async (courseId) => {
   try {
     const apperClient = getApperClient();
     
-    // Build query params
-    const params = {
-      fields: ['Id', 'Name', 'student', 'course', 'Tags']
+    // First get the enrollment records
+    const enrollmentParams = {
+      fields: ['Id', 'student', 'course'],
+      where: [{
+        fieldName: 'course',
+        operator: 'ExactMatch',
+        values: [courseId]
+      }]
     };
     
-    // Add filters if provided
-    const conditions = [];
+    const enrollmentResponse = await apperClient.fetchRecords('student_course', enrollmentParams);
+    const enrollments = enrollmentResponse.data || [];
     
-    if (studentId) {
-      conditions.push({
-        fieldName: 'student',
-        operator: 'EqualTo',
-        values: [studentId]
-      });
+    // If there are no enrollments, return empty array
+    if (enrollments.length === 0) {
+      return [];
     }
     
-    if (courseId) {
-      conditions.push({
-        fieldName: 'course',
-        operator: 'EqualTo',
-        values: [courseId]
-      });
-    }
+    // Get the student IDs from enrollments
+    const studentIds = enrollments.map(enrollment => enrollment.student);
     
-    if (conditions.length > 0) {
-      params.where = conditions;
-    }
+    // Fetch student details
+    const studentParams = {
+      fields: ['Id', 'Name', 'student_id', 'full_name', 'email'],
+      where: [{
+        fieldName: 'Id',
+        operator: 'ExactMatch',
+        values: studentIds
+      }]
+    };
     
-    const response = await apperClient.fetchRecords('student_course', params);
-    return response.data || [];
+    const studentResponse = await apperClient.fetchRecords('student', studentParams);
+    const students = studentResponse.data || [];
+    
+    // Combine enrollment and student data
+    return students.map(student => {
+      const enrollment = enrollments.find(e => e.student === student.Id);
+      return {
+        ...student,
+        enrollmentId: enrollment?.Id
+      };
+    });
   } catch (error) {
-    console.error('Error fetching student courses:', error);
-    toast.error('Failed to fetch student course relationships');
+    console.error('Error fetching students for course:', error);
+    toast.error('Failed to fetch enrolled students');
     throw error;
   }
 };
@@ -61,13 +73,29 @@ export const enrollStudentInCourse = async (studentId, courseId) => {
     const apperClient = getApperClient();
     
     // Check if enrollment already exists
-    const existing = await fetchStudentCourses(studentId, courseId);
-    if (existing.length > 0) {
+    const checkParams = {
+      fields: ['Id'],
+      where: [
+        {
+          fieldName: 'student',
+          operator: 'ExactMatch',
+          values: [studentId]
+        },
+        {
+          fieldName: 'course',
+          operator: 'ExactMatch',
+          values: [courseId]
+        }
+      ]
+    };
+    
+    const checkResponse = await apperClient.fetchRecords('student_course', checkParams);
+    if (checkResponse.data && checkResponse.data.length > 0) {
       toast.warning('Student is already enrolled in this course');
-      return existing[0];
+      return null;
     }
     
-    // Create a name for the relationship
+    // Create enrollment record
     const params = {
       records: [{
         Name: `Enrollment-${studentId}-${courseId}`,
@@ -80,18 +108,20 @@ export const enrollStudentInCourse = async (studentId, courseId) => {
     return response.results?.[0]?.data || null;
   } catch (error) {
     console.error('Error enrolling student:', error);
-    toast.error('Failed to enroll student in course');
+    toast.error('Failed to enroll student');
     throw error;
   }
 };
 
-// Get student count for a specific course
-export const getStudentCountForCourse = async (courseId) => {
+// Remove a student from a course
+export const removeStudentFromCourse = async (enrollmentId) => {
   try {
-    const enrollments = await fetchStudentCourses(null, courseId);
-    return enrollments.length;
+    const apperClient = getApperClient();
+    await apperClient.deleteRecord('student_course', { RecordIds: [enrollmentId] });
+    return true;
   } catch (error) {
-    console.error(`Error getting student count for course ${courseId}:`, error);
-    return 0;
+    console.error('Error removing student from course:', error);
+    toast.error('Failed to unenroll student');
+    throw error;
   }
 };

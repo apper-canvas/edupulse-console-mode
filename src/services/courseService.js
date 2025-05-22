@@ -92,6 +92,34 @@ export const fetchCourses = async (searchQuery = '', department = 'All', term = 
   }
 };
 
+// Get course by ID
+export const getCourseById = async (courseId) => {
+  try {
+    const apperClient = getApperClient();
+    
+    // First find the record that matches the course_id (not the Id field)
+    const params = {
+      fields: ['Id', 'Name', 'course_id', 'department', 'credits', 'term', 'instructor', 'Tags'],
+      where: [{
+        fieldName: 'Id',
+        operator: 'ExactMatch',
+        values: [courseId]
+      }]
+    };
+    
+    const response = await apperClient.fetchRecords('course', params);
+    
+    if (response.data && response.data.length > 0) {
+      return response.data[0];
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error fetching course by ID:', error);
+    throw error;
+  }
+};
+
 // Fetch recent courses with a limit
 export const fetchRecentCourses = async (limit = 4) => {
   try {

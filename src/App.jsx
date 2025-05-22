@@ -1,8 +1,9 @@
 import { createContext, useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { ToastContainer } from 'react-toastify';
 import { Sun, Moon } from 'lucide-react';
+import { toast } from 'react-toastify';
 import { setUser, clearUser } from './store/userSlice';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
@@ -11,6 +12,10 @@ import Signup from './pages/Signup';
 import Callback from './pages/Callback';
 import ErrorPage from './pages/ErrorPage';
 import Dashboard from './pages/Dashboard';
+import CourseDetail from './pages/CourseDetail';
+import CourseList from './pages/CourseList';
+import CourseAssignments from './pages/CourseAssignments';
+import CourseStudents from './pages/CourseStudents';
 
 // Create auth context
 export const AuthContext = createContext(null);
@@ -182,6 +187,12 @@ function App() {
             <Route path="/error" element={<ErrorPage />} />
             <Route path="/" element={isAuthenticated ? <Dashboard /> : <Home />} />
             <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
+            <Route path="/courses" element={isAuthenticated ? <CourseList /> : <Navigate to="/login" />} />
+            <Route path="/courses/:courseId" element={isAuthenticated ? <CourseDetail /> : <Navigate to="/login" />} />
+            <Route path="/courses/:courseId/assignments" element={isAuthenticated ? <CourseDetail /> : <Navigate to="/login" />} />
+            <Route path="/courses/:courseId/students" element={isAuthenticated ? <CourseDetail /> : <Navigate to="/login" />} />
+            <Route path="/courses/:courseId/assignments/:assignmentId" element={isAuthenticated ? <CourseDetail /> : <Navigate to="/login" />} />
+            <Route path="/courses/:courseId/students/enroll" element={isAuthenticated ? <CourseStudents /> : <Navigate to="/login" />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

@@ -346,8 +346,8 @@ const MainFeature = () => {
           </thead>
           <tbody>
                           className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                          onClick={() => handleDelete(course)}
-                filteredCourses.map((course) => (
+                          onClick={() => handleDelete(course.recordId)}
+                {!isLoading && filteredCourses.length > 0 ? (filteredCourses.map((course) => (
                   <motion.tr
                     key={course.id}
                     className="border-b border-surface-100 dark:border-surface-700 hover:bg-surface-50 dark:hover:bg-surface-700/50"
@@ -356,14 +356,14 @@ const MainFeature = () => {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <td className="py-3 font-medium">{course.id}</td>
-                    <td className="py-3">{course.name}</td>
+                    <td className="py-3 font-medium">
+                      <Link to={`/courses/${course.recordId}`} className="hover:text-primary">{course.course_id}</Link>
+                    </td>
+                    <td className="py-3">{course.Name}</td>
                     <td className="py-3 hidden sm:table-cell">{course.department}</td>
                     <td className="py-3 hidden md:table-cell">{course.credits}</td>
                     <td className="py-3 hidden lg:table-cell">{course.term}</td>
                     <td className="py-3">{course.instructor}</td>
-                    <td className="py-3 text-right">
-                      <div className="flex justify-end gap-2">
                         <button
                           className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                           onClick={() => handleEdit(course)}
@@ -374,7 +374,7 @@ const MainFeature = () => {
                         </button>
                         <button
                           className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                          onClick={() => handleDelete(course.id)}
+                          onClick={() => handleDelete(course.recordId)}
                           disabled={isLoading}
                           aria-label="Delete course"
                         >
