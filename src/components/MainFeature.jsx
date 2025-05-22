@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { getIcon } from '../utils/iconUtils';
+import { fetchCourses, createCourse, updateCourse, deleteCourse } from '../services/courseService';
+import { getDepartmentOptions } from '../services/departmentService';
+
+// Constants
+const TERMS = ['All', 'Fall 2023', 'Spring 2024'];
 
 // Get icon components
 const PlusIcon = getIcon('plus');
@@ -15,104 +20,68 @@ const RefreshCwIcon = getIcon('refresh-cw');
 
 const MainFeature = () => {
   // Course state
-  const [courses, setCourses] = useState([
-    { 
-      id: 'CS101', 
-      name: 'Introduction to Computer Science', 
-      department: 'Computer Science',
-      credits: 3,
-      term: 'Fall 2023',
-      instructor: 'Dr. Alan Turing'
-    },
-    { 
-      id: 'MATH201', 
-      name: 'Advanced Calculus', 
-      department: 'Mathematics',
-      credits: 4,
-      term: 'Fall 2023',
-      instructor: 'Dr. Katherine Johnson'
-    },
-    { 
-      id: 'ENG103', 
-      name: 'Creative Writing', 
-      department: 'English',
-      credits: 3,
-      term: 'Fall 2023',
-      instructor: 'Prof. Jane Austen'
-    },
-    { 
-      id: 'BIO205', 
-      name: 'Molecular Biology', 
-      department: 'Biology',
-      credits: 4,
-      term: 'Spring 2024',
-      instructor: 'Dr. Rosalind Franklin'
-    }
-  ]);
+  const [courses, setCourses] = useState([]);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredCourses, setFilteredCourses] = useState(courses);
-  const [departments] = useState(['All', 'Computer Science', 'Mathematics', 'English', 'Biology']);
+  const [departments, setDepartments] = useState(['All', 'Computer Science', 'Mathematics', 'English', 'Biology']);
   const [selectedDepartment, setSelectedDepartment] = useState('All');
-  const [terms] = useState(['All', 'Fall 2023', 'Spring 2024']);
   const [selectedTerm, setSelectedTerm] = useState('All');
   
   // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [editingCourseId, setEditingCourseId] = useState(null);
   const [formData, setFormData] = useState({
     id: '',
     name: '',
     department: '',
     credits: 3,
     term: '',
-    instructor: ''
+    instructor: '',
+    tags: ''
   });
 
   // Form errors
   const [formErrors, setFormErrors] = useState({});
 
   // Loading state for simulating API requests
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Filter courses when search or filters change
+  // Fetch courses when component mounts
   useEffect(() => {
-    const filtered = courses.filter(course => {
-      // Search query filter
-      const matchesSearch = 
-        course.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        course.instructor.toLowerCase().includes(searchQuery.toLowerCase());
-        
-      // Department filter
-      const matchesDepartment = 
-        selectedDepartment === 'All' || 
-        course.department === selectedDepartment;
-        
-      // Term filter
-      const matchesTerm = 
-        selectedTerm === 'All' || 
-        course.term === selectedTerm;
-        
-      return matchesSearch && matchesDepartment && matchesTerm;
-    });
-    
-    setFilteredCourses(filtered);
-  }, [searchQuery, selectedDepartment, selectedTerm, courses]);
-
-  // Reset form
-  const resetForm = () => {
-    setFormData({
+  const handleEdit = (course) => {    
+    setEditingCourseId(course.recordId);
+  const handleDelete = async (course) => {
+    if (!confirm(`Are you sure you want to delete course ${course.id}?`)) {
+      return;
+    }
+    try {
+      setIsLoading(true);
+      await deleteCourse(course.recordId);
+      
+      // Update local state after successful deletion
+      setCourses(courses.filter(c => c.recordId !== course.recordId));
+      toast.success(`Course ${course.id} has been deleted`);
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      toast.error("Failed to delete course");
+    } finally {
+      setIsLoading(false);
+    }
       id: '',
       name: '',
-      department: 'Computer Science',
+      department: departments.find(d => d !== 'All') || '',
       credits: 3,
-      term: 'Fall 2023',
-      instructor: ''
+      term: TERMS.find(t => t !== 'All') || '',
+      instructor: '',
+      tags: ''
     });
     setFormErrors({});
     setEditingCourse(null);
+    setEditingCourseId(null);
   };
 
   // Open form for adding new course
@@ -125,9 +94,9 @@ const MainFeature = () => {
   const handleEdit = (course) => {
     setFormData({...course});
     setEditingCourse(course.id);
-    setIsFormOpen(true);
-  };
+      !editingCourse && courses.some(course => course.id === formData.id.trim())
 
+      // Only check for duplicates when creating new course
   // Delete course
   const handleDelete = (courseId) => {
     setIsLoading(true);
@@ -156,36 +125,76 @@ const MainFeature = () => {
       });
     }
   };
-
+  const handleSubmit = async (e) => {
   // Validate form
   const validateForm = () => {
     const errors = {};
     
     if (!formData.id.trim()) {
       errors.id = 'Course ID is required';
+
+    setIsSubmitting(true);
     } else if (
-      !editingCourse && 
-      courses.some(course => course.id === formData.id.trim())
-    ) {
-      errors.id = 'Course ID already exists';
+    try {
     }
     
-    if (!formData.name.trim()) {
-      errors.name = 'Course name is required';
+        const updatedCourse = await updateCourse(editingCourseId, {
+          name: formData.name,
+          department: formData.department,
+          credits: formData.credits,
+          term: formData.term,
+          instructor: formData.instructor,
+          tags: formData.tags || ''
+        });
+        
+        if (updatedCourse) {
+          // Update local state
+          const updatedCourses = courses.map(course => 
+            course.recordId === editingCourseId ? 
+              {
+                ...formData,
+                recordId: editingCourseId
+              } : course
+          );
+          setCourses(updatedCourses);
+          toast.success(`Course ${formData.id} has been updated`);
+        }
     }
     
-    if (!formData.instructor.trim()) {
-      errors.instructor = 'Instructor name is required';
+        const newCourse = await createCourse({
+          id: formData.id,
+          name: formData.name,
+          department: formData.department,
+          credits: formData.credits,
+          term: formData.term,
+          instructor: formData.instructor,
+          tags: formData.tags || ''
+        });
+        
+        if (newCourse) {
+          // Add to local state
+          setCourses([...courses, {
+            id: formData.id,
+            name: formData.name,
+            department: formData.department,
+            credits: formData.credits,
+            term: formData.term,
+            instructor: formData.instructor,
+            tags: formData.tags || '',
+            recordId: newCourse.Id
+          }]);
+          toast.success(`Course ${formData.id} has been added`);
+        }
     }
     
-    if (!formData.department) {
-      errors.department = 'Department is required';
-    }
-    
-    if (!formData.term) {
       errors.term = 'Term is required';
     }
-    
+    } catch (error) {
+      console.error("Error submitting course:", error);
+      toast.error(editingCourse ? "Failed to update course" : "Failed to add course");
+    } finally {
+      setIsSubmitting(false);
+    }
     if (formData.credits < 1 || formData.credits > 6) {
       errors.credits = 'Credits must be between 1 and 6';
     }
@@ -239,7 +248,7 @@ const MainFeature = () => {
       {/* Search and filters */}
       <div className="mb-6 space-y-4">
         <div className="flex flex-col md:flex-row gap-4">
-          {/* Search input */}
+            {/* Department filter - now using departments from API */}
           <div className="relative flex-grow">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <SearchIcon className="h-4 w-4 text-surface-500" />
@@ -261,7 +270,7 @@ const MainFeature = () => {
                 className="input appearance-none pr-10 pl-4 py-2"
                 value={selectedDepartment}
                 onChange={(e) => setSelectedDepartment(e.target.value)}
-              >
+                {TERMS.map(term => (
                 {departments.map(dept => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
@@ -285,7 +294,19 @@ const MainFeature = () => {
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <FilterIcon className="h-4 w-4 text-surface-500" />
               </div>
+      
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="ml-2 text-surface-600 dark:text-surface-400">Loading courses...</span>
+        </div>
+      )}
             </div>
+      {/* No courses state */}
+      {!isLoading && courses.length === 0 && (
+        <div className="text-center py-8 text-surface-500 dark:text-surface-400">No courses found. Add your first course to get started.</div>
+      )}
             
             {/* Reset filters button */}
             <button
@@ -302,7 +323,7 @@ const MainFeature = () => {
           <button
             className="btn btn-primary flex items-center justify-center gap-2 whitespace-nowrap"
             onClick={handleAddNew}
-          >
+              {!isLoading && filteredCourses.length > 0 ? (
             <PlusIcon className="h-4 w-4" />
             <span>Add Course</span>
           </button>
@@ -324,8 +345,8 @@ const MainFeature = () => {
             </tr>
           </thead>
           <tbody>
-            <AnimatePresence>
-              {filteredCourses.length > 0 ? (
+                          className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                          onClick={() => handleDelete(course)}
                 filteredCourses.map((course) => (
                   <motion.tr
                     key={course.id}
@@ -489,6 +510,23 @@ const MainFeature = () => {
                         value={formData.credits}
                         onChange={handleInputChange}
                         required
+
+                    {/* Tags */}
+                    <div>
+                      <label htmlFor="tags" className="label">Tags (comma-separated)</label>
+                      <input
+                        type="text"
+                        id="tags"
+                        name="tags"
+                        className={`input w-full ${formErrors.tags ? 'border-red-500 dark:border-red-500' : ''}`}
+                        value={formData.tags || ''}
+                        onChange={handleInputChange}
+                        placeholder="tag1,tag2,tag3"
+                      />
+                      {formErrors.tags && (
+                        <p className="mt-1 text-sm text-red-500">{formErrors.tags}</p>
+                      )}
+                    </div>
                       />
                       {formErrors.credits && (
                         <p className="mt-1 text-sm text-red-500">{formErrors.credits}</p>
@@ -501,11 +539,11 @@ const MainFeature = () => {
                       <select
                         id="term"
                         name="term"
-                        className={`input w-full ${formErrors.term ? 'border-red-500 dark:border-red-500' : ''}`}
+                      type="submit"
                         value={formData.term}
-                        onChange={handleInputChange}
+                      disabled={isSubmitting}
                         required
-                      >
+                      {isSubmitting ? (
                         <option value="">Select a term</option>
                         {terms.filter(t => t !== 'All').map(term => (
                           <option key={term} value={term}>{term}</option>

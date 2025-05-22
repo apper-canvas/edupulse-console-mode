@@ -1,57 +1,31 @@
 import * as LucideIcons from 'lucide-react';
 
+/**
+ * Gets a Lucide icon component by name
+ * @param {string} iconName - The name of the icon (kebab-case as used in Lucide)
+ * @returns {React.ComponentType} The icon component
+ */
 export const getIcon = (iconName) => {
-  // Handle null/undefined case
-  if (!iconName) {
-    console.warn('No icon name provided, using Smile as fallback');
-    return LucideIcons.Smile;
-  }
-  
-  // Step 1: Try direct match first (if already PascalCase)
-  if (LucideIcons[iconName] && typeof LucideIcons[iconName] === 'function') {
-    return LucideIcons[iconName];
-  }
-  
-  // Step 2: Handle various transformations from kebab-case to PascalCase
-  let componentName = '';
-  if (iconName.includes('-')) {
-    // Handle kebab-case with numbers (bar-chart-2 → BarChart2)
-    componentName = iconName
-      .split('-')
-      .map(part => {
-        // Check if the part is just a number and attach it without capitalization
-        if (/^\d+$/.test(part)) {
-          return part;
-        }
-        // Otherwise capitalize the first letter
-        return part.charAt(0).toUpperCase() + part.slice(1);
-      })
-      .join('');
+  // Convert kebab-case to PascalCase for React component name
+  const pascalCase = iconName
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join('');
+
+  // Get the icon component from Lucide
+  const IconComponent = LucideIcons[pascalCase];
+
+  // Return the icon or a fallback
+  if (IconComponent) {
+    return IconComponent;
   } else {
-    // For single word icons, just capitalize first letter
-    componentName = iconName.charAt(0).toUpperCase() + iconName.slice(1);
+    console.warn(`Icon "${iconName}" not found in Lucide. Using fallback.`);
+    
+    // Return a simple square as fallback
+    return (props) => (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+      </svg>
+    );
   }
-  
-  // Step 3: Check if we have a valid component after transformation
-  if (LucideIcons[componentName] && typeof LucideIcons[componentName] === 'function') {
-    return LucideIcons[componentName];
-  }
-  
-  // Step 4: Advanced retry - try various transformations if needed
-  // Try removing spaces and underscores (user_circle → UserCircle)
-  const noSpaces = componentName.replace(/[\s_]/g, '');
-  if (LucideIcons[noSpaces] && typeof LucideIcons[noSpaces] === 'function') {
-    return LucideIcons[noSpaces];
-  }
-  
-  // Try inserting number without space (barChart2 → BarChart2)
-  const numberPattern = /([A-Za-z])(\d+)$/;
-  const withNumber = componentName.replace(numberPattern, '$1$2');
-  if (LucideIcons[withNumber] && typeof LucideIcons[withNumber] === 'function') {
-    return LucideIcons[withNumber];
-  }
-  
-  // Fallback with console warning for debugging
-  console.warn(`Icon "${iconName}" not found in Lucide (tried "${componentName}"), using Smile instead`);
-  return LucideIcons.Smile;
 };
